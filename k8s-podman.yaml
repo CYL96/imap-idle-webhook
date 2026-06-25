@@ -1,0 +1,56 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: imap-idle-webhook-secret
+stringData:
+  IMAP_PASSWORD: your-app-password
+  WEBHOOK_SECRET: change-me
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: imap-idle-webhook
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: imap-idle-webhook
+  template:
+    metadata:
+      labels:
+        app: imap-idle-webhook
+    spec:
+      containers:
+        - name: imap-idle-webhook
+          image: localhost/imap-idle-webhook:latest
+          imagePullPolicy: Never
+          env:
+            - name: IMAP_HOST
+              value: imap.example.com
+            - name: IMAP_PORT
+              value: "993"
+            - name: IMAP_USER
+              value: you@example.com
+            - name: IMAP_FOLDER
+              value: INBOX
+            # Optional: overrides IMAP_FOLDER when set to non-empty parsed entries.
+            # - name: IMAP_FOLDERS
+            #   value: INBOX|Alerts|Project Alpha/Inbox
+            - name: WEBHOOK_URL
+              value: http://host.containers.internal:8644/webhooks/test
+            - name: GITHUB_EVENT
+              value: email.received
+            - name: LOG_LEVEL
+              value: INFO
+            - name: STARTUP_NOTIFICATION
+              value: "false"
+            - name: IMAP_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: imap-idle-webhook-secret
+                  key: IMAP_PASSWORD
+            - name: WEBHOOK_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: imap-idle-webhook-secret
+                  key: WEBHOOK_SECRET

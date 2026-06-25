@@ -1,0 +1,10 @@
+services:
+  imap-idle-webhook:
+    build:
+      context: .
+      dockerfile: Containerfile
+    image: localhost/imap-idle-webhook:latest
+    env_file: .env
+    restart: unless-stopped
+    extra_hosts:
+      - "host.containers.internal:host-gateway"
