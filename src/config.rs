@@ -12,6 +12,10 @@ pub struct Config {
     pub webhook_url: String,
     pub webhook_secret: String,
     pub github_event: String,
+    pub imap_id_name: String,
+    pub imap_id_version: String,
+    pub imap_id_vendor: String,
+    pub imap_id_support_email: String,
     pub idle_timeout_seconds: u64,
     pub reconnect_delay_seconds: u64,
     pub mark_seen: bool,
@@ -40,19 +44,24 @@ impl Config {
         let fallback_folder = optional_env("IMAP_FOLDER", "INBOX");
         let folders = configured_folders(&fallback_folder);
         let imap_folder = folders[0].clone();
+        let imap_user = required_env("IMAP_USER")?;
 
         Ok(Self {
             imap_host: required_env("IMAP_HOST")?,
             imap_port: optional_env("IMAP_PORT", "993")
                 .parse()
                 .context("IMAP_PORT must be an integer")?,
-            imap_user: required_env("IMAP_USER")?,
+            imap_user: imap_user.clone(),
             imap_password: required_env("IMAP_PASSWORD")?,
             imap_folder,
             folders,
             webhook_url: required_env("WEBHOOK_URL")?,
             webhook_secret: required_env("WEBHOOK_SECRET")?,
             github_event: optional_env("GITHUB_EVENT", "email.received"),
+            imap_id_name: optional_nonempty_env("IMAP_ID_NAME", env!("CARGO_PKG_NAME")),
+            imap_id_version: optional_nonempty_env("IMAP_ID_VERSION", env!("CARGO_PKG_VERSION")),
+            imap_id_vendor: optional_nonempty_env("IMAP_ID_VENDOR", env!("CARGO_PKG_NAME")),
+            imap_id_support_email: optional_nonempty_env("IMAP_ID_SUPPORT_EMAIL", &imap_user),
             idle_timeout_seconds: optional_env("IDLE_TIMEOUT_SECONDS", "1740")
                 .parse()
                 .context("IDLE_TIMEOUT_SECONDS must be an integer")?,
@@ -79,6 +88,13 @@ fn required_env(key: &str) -> Result<String> {
 
 fn optional_env(key: &str, default: &str) -> String {
     env::var(key).unwrap_or_else(|_| default.to_owned())
+}
+
+fn optional_nonempty_env(key: &str, default: &str) -> String {
+    env::var(key)
+        .ok()
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or_else(|| default.to_owned())
 }
 
 fn configured_folders(fallback_folder: &str) -> Vec<String> {

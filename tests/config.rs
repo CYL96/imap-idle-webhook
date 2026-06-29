@@ -23,6 +23,10 @@ fn config_from_env_uses_existing_defaults_and_parses_mark_seen() {
             assert_eq!(cfg.webhook_url, "https://example.com/webhook");
             assert_eq!(cfg.webhook_secret, "change-me");
             assert_eq!(cfg.github_event, "email.received");
+            assert_eq!(cfg.imap_id_name, env!("CARGO_PKG_NAME"));
+            assert_eq!(cfg.imap_id_version, env!("CARGO_PKG_VERSION"));
+            assert_eq!(cfg.imap_id_vendor, env!("CARGO_PKG_NAME"));
+            assert_eq!(cfg.imap_id_support_email, "you@example.com");
             assert_eq!(cfg.idle_timeout_seconds, 1740);
             assert_eq!(cfg.reconnect_delay_seconds, 10);
             assert!(cfg.mark_seen);
@@ -50,6 +54,56 @@ fn startup_notification_parses_true_values() {
             },
         );
     }
+}
+
+#[test]
+fn imap_id_fields_can_be_overridden() {
+    temp_env::with_vars(
+        [
+            ("IMAP_HOST", Some("imap.163.com")),
+            ("IMAP_USER", Some("you@163.com")),
+            ("IMAP_PASSWORD", Some("app-password")),
+            ("WEBHOOK_URL", Some("https://example.com/webhook")),
+            ("WEBHOOK_SECRET", Some("change-me")),
+            ("IMAP_ID_NAME", Some("myname")),
+            ("IMAP_ID_VERSION", Some("1.0.0")),
+            ("IMAP_ID_VENDOR", Some("myclient")),
+            ("IMAP_ID_SUPPORT_EMAIL", Some("testmail@test.com")),
+        ],
+        || {
+            let cfg = Config::from_env().unwrap();
+
+            assert_eq!(cfg.imap_id_name, "myname");
+            assert_eq!(cfg.imap_id_version, "1.0.0");
+            assert_eq!(cfg.imap_id_vendor, "myclient");
+            assert_eq!(cfg.imap_id_support_email, "testmail@test.com");
+        },
+    );
+}
+
+#[test]
+fn imap_id_empty_values_fall_back_to_defaults() {
+    temp_env::with_vars(
+        [
+            ("IMAP_HOST", Some("imap.163.com")),
+            ("IMAP_USER", Some("you@163.com")),
+            ("IMAP_PASSWORD", Some("app-password")),
+            ("WEBHOOK_URL", Some("https://example.com/webhook")),
+            ("WEBHOOK_SECRET", Some("change-me")),
+            ("IMAP_ID_NAME", Some("   ")),
+            ("IMAP_ID_VERSION", Some("")),
+            ("IMAP_ID_VENDOR", Some(" ")),
+            ("IMAP_ID_SUPPORT_EMAIL", Some("  ")),
+        ],
+        || {
+            let cfg = Config::from_env().unwrap();
+
+            assert_eq!(cfg.imap_id_name, env!("CARGO_PKG_NAME"));
+            assert_eq!(cfg.imap_id_version, env!("CARGO_PKG_VERSION"));
+            assert_eq!(cfg.imap_id_vendor, env!("CARGO_PKG_NAME"));
+            assert_eq!(cfg.imap_id_support_email, "you@163.com");
+        },
+    );
 }
 
 #[test]

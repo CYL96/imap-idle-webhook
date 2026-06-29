@@ -60,6 +60,20 @@ async fn run_folder_worker(cfg: Config, folder: String) -> Result<()> {
 
 async fn run_folder_connection(cfg: &Config, folder: &str) -> Result<()> {
     let mut client = ImapConnection::connect(&cfg.imap_host, cfg.imap_port).await?;
+    if let Err(err) = client
+        .identify(
+            &cfg.imap_id_name,
+            &cfg.imap_id_version,
+            &cfg.imap_id_vendor,
+            &cfg.imap_id_support_email,
+        )
+        .await
+    {
+        warn!(
+            "IMAP ID command failed host={} continuing without ID: {err:#}",
+            cfg.imap_host
+        );
+    }
     client.login(&cfg.imap_user, &cfg.imap_password).await?;
     client.select(folder).await?;
     info!("connected to {} folder={}", cfg.imap_host, folder);
@@ -154,6 +168,18 @@ impl ImapConnection {
             quote_imap_string(password)
         ))
         .await?;
+        Ok(())
+    }
+
+    async fn identify(
+        &mut self,
+        name: &str,
+        version: &str,
+        vendor: &str,
+        support_email: &str,
+    ) -> Result<()> {
+        self.command(&id_command(name, version, vendor, support_email))
+            .await?;
         Ok(())
     }
 
@@ -325,6 +351,20 @@ fn select_folder_command(folder: &str) -> String {
     format!("SELECT {}", quote_imap_string(folder))
 }
 
+fn id_command(name: &str, version: &str, vendor: &str, support_email: &str) -> String {
+    format!(
+        "ID ({} {} {} {} {} {} {} {})",
+        quote_imap_string("name"),
+        quote_imap_string(name),
+        quote_imap_string("version"),
+        quote_imap_string(version),
+        quote_imap_string("vendor"),
+        quote_imap_string(vendor),
+        quote_imap_string("support-email"),
+        quote_imap_string(support_email)
+    )
+}
+
 fn is_tagged_completion(line: &str, tag: &str) -> bool {
     line.starts_with(tag) && line[tag.len()..].starts_with(' ')
 }
@@ -398,6 +438,21 @@ mod tests {
     }
 
     #[test]
+    fn id_command_includes_163_compatible_client_metadata() {
+        let command = super::id_command(
+            "imap-idle-webhook",
+            "0.1.0",
+            "imap-idle-webhook",
+            "support@example.com",
+        );
+
+        assert_eq!(
+            command,
+            "ID (\"name\" \"imap-idle-webhook\" \"version\" \"0.1.0\" \"vendor\" \"imap-idle-webhook\" \"support-email\" \"support@example.com\")"
+        );
+    }
+
+    #[test]
     fn folder_worker_specs_preserve_one_worker_per_configured_folder() {
         let cfg = crate::config::Config {
             imap_host: "imap.example.com".to_owned(),
@@ -409,6 +464,10 @@ mod tests {
             webhook_url: "https://example.com/webhook".to_owned(),
             webhook_secret: "change-me".to_owned(),
             github_event: "email.received".to_owned(),
+            imap_id_name: "imap-idle-webhook".to_owned(),
+            imap_id_version: "0.1.0".to_owned(),
+            imap_id_vendor: "imap-idle-webhook".to_owned(),
+            imap_id_support_email: "support@example.com".to_owned(),
             idle_timeout_seconds: 1740,
             reconnect_delay_seconds: 10,
             mark_seen: false,

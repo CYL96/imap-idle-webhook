@@ -43,7 +43,7 @@
 
 1. 从环境变量读取 IMAP 账号、监听文件夹、webhook URL 与 secret。
 2. 为每个配置的文件夹启动一个独立 async worker。
-3. worker 连接 IMAP TLS、登录并 `SELECT` 对应 mailbox。
+3. worker 连接 IMAP TLS，先发送 IMAP `ID` 声明客户端身份，再登录并 `SELECT` 对应 mailbox。
 4. 启动时执行 `UID SEARCH UNSEEN`，先发送当前未读邮件。
 5. 进入 `IDLE`；收到 `EXISTS` 或超时结束后再次搜索 `UNSEEN`。
 6. 对每个 UID 使用 `BODY.PEEK[]` 获取邮件内容，避免默认标记已读。
@@ -76,6 +76,12 @@ WEBHOOK_URL=https://hermes.example.com/webhooks/<subscription-id>
 WEBHOOK_SECRET=<webhook-shared-secret>
 GITHUB_EVENT=email.received
 
+# 可选：发送 IMAP ID，兼容 163/188 等要求客户端声明身份的服务商
+# IMAP_ID_NAME=imap-idle-webhook
+# IMAP_ID_VERSION=0.1.0
+# IMAP_ID_VENDOR=imap-idle-webhook
+# IMAP_ID_SUPPORT_EMAIL=user@example.com
+
 IDLE_TIMEOUT_SECONDS=1740
 RECONNECT_DELAY_SECONDS=10
 MARK_SEEN=false
@@ -94,6 +100,10 @@ LOG_LEVEL=INFO
 | `WEBHOOK_URL` | 是 | 无 | 接收 signed JSON POST 的 URL。 |
 | `WEBHOOK_SECRET` | 是 | 无 | 计算 `X-Hub-Signature-256` 的共享密钥。 |
 | `GITHUB_EVENT` | 否 | `email.received` | webhook header `X-GitHub-Event` 的值；startup marker 的 payload `event` 也使用该值。 |
+| `IMAP_ID_NAME` | 否 | `imap-idle-webhook` | IMAP `ID` 命令中的 `name` 字段；连接建立后会主动发送，兼容要求客户端自报身份的 IMAP 服务。 |
+| `IMAP_ID_VERSION` | 否 | 当前 crate 版本 | IMAP `ID` 命令中的 `version` 字段。 |
+| `IMAP_ID_VENDOR` | 否 | `imap-idle-webhook` | IMAP `ID` 命令中的 `vendor` 字段。 |
+| `IMAP_ID_SUPPORT_EMAIL` | 否 | `IMAP_USER` | IMAP `ID` 命令中的 `support-email` 字段。 |
 | `IDLE_TIMEOUT_SECONDS` | 否 | `1740` | 每轮 IMAP IDLE 最长等待秒数；超时后会结束本轮并重新搜索未读邮件。 |
 | `RECONNECT_DELAY_SECONDS` | 否 | `10` | worker 出错后重连前等待秒数。 |
 | `MARK_SEEN` | 否 | `false` | `true`、`yes` 或 `1` 表示 webhook 成功后标记已读。 |
