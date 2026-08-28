@@ -266,6 +266,29 @@ systemctl --user enable --now imap-idle-webhook.service
 journalctl --user -u imap-idle-webhook.service -f
 ```
 
+### NixOS 二进制包
+
+仓库提供锁定依赖的 Nix flake，可在 Linux 上构建并运行 `imap-idle-webhook`：
+
+```bash
+# 构建 Nix store 中的二进制包
+nix build .#imap-idle-webhook
+./result/bin/imap-idle-webhook
+
+# 直接运行
+nix run .#imap-idle-webhook
+```
+
+发布可分发的单文件 Linux 二进制包：
+
+```bash
+nix bundle .#imap-idle-webhook --bundler github:NixOS/bundlers#toAppImage \
+  --out-link imap-idle-webhook.AppImage
+chmod +x imap-idle-webhook.AppImage
+```
+
+将生成的 `imap-idle-webhook.AppImage` 上传到 GitHub Release。目标系统不需要预装 Nix；运行时仍须通过环境变量提供 IMAP 与 webhook 配置。
+
 ## Hermes Agent 接入
 
 面向 Hermes Agent 的自动部署/接入说明见：[`docs/hermes-agent-integration.md`](docs/hermes-agent-integration.md)。
